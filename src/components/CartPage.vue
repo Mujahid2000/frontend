@@ -20,8 +20,28 @@ const isFormValid = computed(() => {
 
 // Handle checkout submission
 const handleCheckout = () => {
-  if (isFormValid.value) {
-    orderSubmitted.value = true;
+  if (isFormValid.value && cartData.value.length > 0) {
+    fetch("http://localhost:5000/order", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: name.value,
+        phone: phone.value,
+      }),
+    })
+      .then((res) => {
+        return res.json();
+      })
+      .then((data) => {
+        if (data) {
+          orderSubmitted.value = true;
+          cartData.value = [];
+          name.value = "";
+          phone.value = "";
+        }
+      });
   }
 };
 
@@ -107,7 +127,7 @@ const removeItem = async (id) => {
                   <td class="px-6 py-4 text-gray-800">{{ lesson.subject }}</td>
                   <td class="px-6 py-4">
                     <button
-                      @click="removeItem(lesson._id)"
+                      @click="removeItem(lesson.lesson_id)"
                       class="text-red-500 hover:text-red-700"
                       aria-label="Remove from cart"
                     >

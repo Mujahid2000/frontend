@@ -46,12 +46,14 @@ onMounted(fetchLessons);
 onMounted(fetchCart);
 
 const handleAddToCart = async (lesson) => {
+  const lesson_id = lesson._id;
+  delete lesson._id;
   try {
     const response = await fetch("http://localhost:5000/cart", {
       method: "POST",
       body: JSON.stringify({
         ...lesson,
-        lesson_id: lesson._id,
+        lesson_id: lesson_id,
         space: 1,
       }),
       headers: {
