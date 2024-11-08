@@ -1,18 +1,13 @@
 <script setup>
-import {  RouterView } from 'vue-router'
-import Navabr from './views/Navabr.vue';
-import Footer from './views/Footer.vue';
-
+import { RouterView } from "vue-router";
+import Navabr from "./views/Navabr.vue";
+import Footer from "./views/Footer.vue";
 </script>
 
 <template>
-  
-<Navabr/>
-<RouterView />
-<Footer/>
-
+  <Navabr />
+  <RouterView />
+  <Footer />
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>

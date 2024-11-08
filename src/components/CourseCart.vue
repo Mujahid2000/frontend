@@ -1,61 +1,140 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue';
-
+import { ref, onMounted, watch } from "vue";
 
 const data = ref([]);
-const originalData = ref([]);
 const filteredData = ref([]);
 const loading = ref(true);
+const filterBy = ref(null);
+const orderBy = ref(null);
 
+const cartItemCount = ref(0);
 
-onMounted(async () => {
+const fetchLessons = async () => {
+  loading.value = true;
   try {
-    const response = await fetch('http://localhost:5000/search');
+    const response = await fetch("http://localhost:5000/lessons");
     if (response.ok) {
       data.value = await response.json();
-      originalData.value = [...data.value];
       filteredData.value = [...data.value];
     } else {
-      console.error('Failed to fetch data:', response.status);
+      console.error("Failed to fetch data:", response.status);
     }
   } catch (error) {
-    console.error('Error fetching data:', error);
+    console.error("Error fetching data:", error);
   } finally {
     loading.value = false;
   }
-});
+};
+const fetchCart = async () => {
+  try {
+    const response = await fetch("http://localhost:5000/cart");
 
-const handleAddToCart = async (course) => {
-  await fetch("http://localhost:5000/cart", {
-    method: "POST",
-    body: JSON.stringify({course}),
-    headers: {
-      "Content-type": "application/json; charset=UTF-8"
+    if (response.ok) {
+      cartItemCount.value = (await response.json()).length;
+    } else {
+      console.error("Failed to fetch data:", response.status);
     }
-  });
+  } catch (error) {
+    console.error("Error fetching data:", error);
+  } finally {
+    loading.value = false;
+  }
 };
 
+onMounted(fetchLessons);
 
-const handleCheckboxChange = (filterKey, isChecked) => {
+onMounted(fetchCart);
+
+const handleAddToCart = async (lesson) => {
+  try {
+    const response = await fetch("http://localhost:5000/cart", {
+      method: "POST",
+      body: JSON.stringify({
+        ...lesson,
+        lesson_id: lesson._id,
+        space: 1,
+      }),
+      headers: {
+        "Content-type": "application/json; charset=UTF-8",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Network response was not ok");
+    }
+
+    const data = await response.json();
+    await fetchCart();
+    if (data) {
+      filteredData.value = filteredData.value.map((item) => {
+        if (item._id === lesson._id) {
+          return {
+            ...item,
+            space: item.space - 1,
+          };
+        }
+        return item;
+      });
+
+      data.value = data.value.map((item) => {
+        if (item._id === lesson._id) {
+          return {
+            ...item,
+            space: item.space - 1,
+          };
+        }
+        return item;
+      });
+    }
+  } catch (error) {
+    console.error("Error adding item to cart:", error);
+  }
+};
+
+const handleFilterChange = (filterKey, isChecked) => {
+  filterBy.value = filterKey;
+  let originalData = [...data.value];
   if (isChecked) {
     switch (filterKey) {
-      case 'subject':
-        filteredData.value.sort((a, b) => a.subject.localeCompare(b.subject));
+      case "subject":
+        filteredData.value = originalData.sort((a, b) =>
+          a.subject.localeCompare(b.subject)
+        );
+        if (orderBy.value === "ascending") {
+          sortDataAscending();
+        }
+        if (orderBy.value === "descending") {
+          sortDataDescending();
+        }
         break;
-      case 'location':
-        filteredData.value.sort((a, b) => a.location.localeCompare(b.location));
+      case "location":
+        filteredData.value = originalData.sort((a, b) =>
+          a.location.localeCompare(b.location)
+        );
+        if (orderBy.value === "ascending") {
+          sortDataAscending();
+        }
+        if (orderBy.value === "descending") {
+          sortDataDescending();
+        }
         break;
-      case 'price':
-        filteredData.value.sort((a, b) => a.price - b.price);
+      case "price":
+        filteredData.value = originalData.sort((a, b) => a.price - b.price);
+        if (orderBy.value === "ascending") {
+          sortDataAscending();
+        }
+        if (orderBy.value === "descending") {
+          sortDataDescending();
+        }
         break;
-      case 'availability':
-        filteredData.value = data.value.filter(course => course.space > 0);
-        break;
-      case 'ascending':
-        sortDataAscending();
-        break;
-      case 'descending':
-        sortDataDescending();
+      case "availability":
+        filteredData.value = originalData.filter((course) => course.space > 0);
+        if (orderBy.value === "ascending") {
+          sortDataAscending();
+        }
+        if (orderBy.value === "descending") {
+          sortDataDescending();
+        }
         break;
     }
   } else {
@@ -63,105 +142,189 @@ const handleCheckboxChange = (filterKey, isChecked) => {
   }
 };
 
-
 const sortDataAscending = () => {
-  filteredData.value.sort((a, b) => {
-    if (filters.value.subject) {
+  orderBy.value = "ascending";
+  filteredData.value = filteredData.value.sort((a, b) => {
+    if (filterBy.value == "subject") {
       return a.subject.localeCompare(b.subject);
-    } else if (filters.value.location) {
+    } else if (filterBy.value == "location") {
       return a.location.localeCompare(b.location);
-    } else if (filters.value.price) {
+    } else if (filterBy.value == "price") {
       return a.price - b.price;
+    } else if (filterBy.value == "availability") {
+      return a.space - b.space;
     } else {
       return 0;
     }
   });
 };
-
 
 const sortDataDescending = () => {
-  filteredData.value.sort((a, b) => {
-    if (filters.value.subject) {
+  orderBy.value = "descending";
+  filteredData.value = filteredData.value.sort((a, b) => {
+    if (filterBy.value == "subject") {
       return b.subject.localeCompare(a.subject);
-    } else if (filters.value.location) {
+    } else if (filterBy.value == "location") {
       return b.location.localeCompare(a.location);
-    } else if (filters.value.price) {
+    } else if (filterBy.value == "price") {
       return b.price - a.price;
+    } else if (filterBy.value == "availability") {
+      return b.space - a.space;
     } else {
       return 0;
     }
   });
 };
-
 </script>
 
 <template>
   <div class="bg-gray-100">
-    <main class="flex flex-col md:flex-row container mx-auto max-w-7xl gap-6 py-8 space-y-8 md:space-y-0">
-      
-      <div class="space-y-4 p-4 w-full md:w-1/4 bg-white rounded-lg shadow-md">
+    <main
+      class="container flex flex-col gap-6 py-8 mx-auto space-y-8 md:flex-row max-w-7xl md:space-y-0"
+    >
+      <div class="w-full p-4 space-y-4 bg-white rounded-lg shadow-md md:w-1/4">
         <h2 class="text-2xl font-semibold text-gray-800">Filters</h2>
-        <h3 class="text-xl mb-4 font-medium text-gray-600">Sort by</h3>
+        <h3 class="mb-4 text-xl font-medium text-gray-600">
+          Sort by attributes
+        </h3>
         <div class="flex flex-col">
           <div id="filters-container" class="space-y-3">
-            
-            <div v-for="(label, key) in { subject: 'Subject', location: 'Location', price: 'Price', availability: 'Availability' }" :key="key" class="flex items-center">
-              <input 
-                @change="handleCheckboxChange(key, $event.target.checked)" 
+            <div
+              v-for="(label, key) in {
+                subject: 'Subject',
+                location: 'Location',
+                price: 'Price',
+                availability: 'Availability',
+              }"
+              :key="key"
+              class="flex items-center"
+            >
+              <input
+                @change="handleFilterChange(key, $event.target.checked)"
                 :value="label"
-                type="checkbox" 
-                class="check mr-2" 
-                :id="key" />
-              <label :for="key" class="text-lg text-gray-700">{{ label }}</label>
+                type="radio"
+                class="mr-2 check"
+                :id="key"
+                name="filter"
+              />
+              <label :for="key" class="text-lg text-gray-700">{{
+                label
+              }}</label>
             </div>
-           
-            <div class="flex items-center mt-3">
-              <input 
-                @change="handleCheckboxChange('ascending', $event.target.checked)" 
-                value="Ascending" 
-                type="checkbox" 
-                class="check mr-2" 
-                id="ascending" />
-              <label for="ascending" class="text-lg text-gray-700">Ascending</label>
+          </div>
+        </div>
+        <h3 class="pt-10 mb-1 text-xl font-medium text-gray-600">
+          Sort by order
+        </h3>
+        <div class="flex flex-col">
+          <div id="filters-container" class="space-y-3">
+            <div class="flex items-center mt-0">
+              <input
+                @change="sortDataAscending()"
+                value="Ascending"
+                type="radio"
+                class="mr-2 check"
+                id="ascending"
+                name="order"
+              />
+              <label for="ascending" class="text-lg text-gray-700"
+                >Ascending</label
+              >
             </div>
             <div class="flex items-center mt-3">
-              <input 
-                @change="handleCheckboxChange('descending', $event.target.checked)" 
-                value="Descending" 
-                type="checkbox" 
-                class="check mr-2" 
-                id="descending" />
-              <label for="descending" class="text-lg text-gray-700">Descending</label>
+              <input
+                @change="sortDataDescending()"
+                value="Descending"
+                type="radio"
+                class="mr-2 check"
+                id="descending"
+                name="order"
+              />
+              <label for="descending" class="text-lg text-gray-700"
+                >Descending</label
+              >
             </div>
           </div>
         </div>
       </div>
 
+      <div
+        id="products-wrapper"
+        class="grid w-full grid-cols-2 gap-6 md:w-3/4 sm:grid-cols-3 xl:grid-cols-3 place-content-center"
+      >
+        <div v-if="loading" class="text-center text-gray-500">
+          Loading courses...
+        </div>
 
-      <div id="products-wrapper" class="w-full md:w-3/4 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-3 gap-6 place-content-center">
-      
-        <div v-if="loading" class="text-center text-gray-500">Loading courses...</div>
-
-      
-        <div v-else v-for="course in filteredData" :key="course.id" class="max-w-lg rounded-lg overflow-hidden shadow-lg bg-white p-4 hover:shadow-xl transition-shadow duration-300">
-          <img class="w-full h-48 object-cover rounded-md mb-4" :src="course.image" :alt="course.title">
+        <div
+          v-else
+          v-for="course in filteredData"
+          :key="course.id"
+          class="max-w-lg p-4 overflow-hidden transition-shadow duration-300 bg-white rounded-lg shadow-lg hover:shadow-xl"
+        >
+          <img
+            class="object-cover w-full h-48 mb-4 rounded-md"
+            :src="course.image"
+            :alt="course.title"
+          />
           <div class="px-4 py-2">
-            <div class="font-bold text-xl text-gray-800 mb-2">{{ course.subject }}</div>
-            <p class="text-gray-600 text-sm mb-2">Location: <span class="font-semibold">{{ course.location }}</span></p>
-            <p class="text-gray-600 text-sm mb-2">Price: <span class="font-semibold">${{ course.price }}</span></p>
-            <p class="text-gray-600 text-sm mb-4">Spaces Left: <span class="font-semibold">{{ course.space }}</span></p>
+            <div class="mb-2 text-xl font-bold text-gray-800">
+              {{ course.subject }}
+            </div>
+            <p class="mb-2 text-sm text-gray-600">
+              Location: <span class="font-semibold">{{ course.location }}</span>
+            </p>
+            <p class="mb-2 text-sm text-gray-600">
+              Price: <span class="font-semibold">${{ course.price }}</span>
+            </p>
+            <p class="mb-4 text-sm text-gray-600">
+              Spaces Left: <span class="font-semibold">{{ course.space }}</span>
+            </p>
           </div>
           <div class="px-4 pb-2">
-
-            <button v-if="course.space > 0" @click="() => handleAddToCart(course)" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-300">
+            <button
+              v-if="course.space > 0"
+              @click="() => handleAddToCart(course)"
+              class="w-full px-4 py-2 font-semibold text-white transition duration-300 bg-blue-600 rounded-lg hover:bg-blue-700"
+            >
               Add to Cart
             </button>
-            <button v-else disabled class="w-full bg-gray-600  text-white font-semibold py-2 px-4 rounded-lg transition duration-300">
+            <button
+              v-else
+              disabled
+              class="w-full px-4 py-2 font-semibold text-white transition duration-300 bg-gray-600 rounded-lg"
+            >
               Add to Cart
             </button>
           </div>
         </div>
       </div>
+      <!-- shopping cart button -->
+      <RouterLink to="/cart-page" class="nav-link"
+        ><button
+          class="fixed flex items-center p-2 text-white bg-blue-600 rounded hover:bg-blue-700 focus:outline-none top-20 right-4"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            class="w-6 h-6"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-1.6 8M17 13l1.6 8m-10 0h10"
+            />
+          </svg>
+          <span
+            class="absolute top-0 right-0 flex items-center justify-center w-5 h-5 text-xs text-white bg-red-500 rounded-full"
+          >
+            {{ cartItemCount }}
+          </span>
+        </button></RouterLink
+      >
     </main>
   </div>
 </template>
